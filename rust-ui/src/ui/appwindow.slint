@@ -1,0 +1,33 @@
+import { Button, VerticalBox } from "std-widgets.slint";
+
+export component AppWindow inherits Window {
+    width: 800px;
+    height: 600px;
+    in-out property<int> counter: 42;
+    in property <image> video-frame <=> image.source;
+ 
+    callback start();
+    callback stop();
+
+    VerticalBox {
+        image:=Image {
+ 
+        }
+        HorizontalLayout {
+            Button {
+                height: 80px;
+                text: "start";
+                clicked => {
+                    root.start();
+                }
+            }
+            Button {
+                height: 80px;
+                text: "stop";
+                clicked => {
+                    root.stop();
+                }
+            }
+        }
+    }
+}
