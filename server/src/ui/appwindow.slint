@@ -1,0 +1,39 @@
+import { Button, VerticalBox , ListView, TextEdit,StandardTableView} from "std-widgets.slint";
+export component AppWindow inherits Window {
+    max_width: 1024px;
+    max_height: 768px;
+    min_width: 1024px;
+    min_height: 768px;
+    background: #fff;
+    in property <string> version <=> self.title;
+    in property <string> connInfo <=> info.text;
+    in property <[[StandardListViewItem]]> model;
+    VerticalBox {
+        padding: 0px;
+        StandardTableView { 
+            width: parent.width;
+            vertical-stretch: 6;
+ 
+            columns: [
+                { title: "识别码" },
+                { title: "IP" },
+                { title: "分辨率" },
+            ];
+           rows: root.model;
+        }
+ 
+        Rectangle {
+            border-color: #91918f;
+            border-width: 1px;
+            width: parent.width;
+            vertical-stretch: 4;
+            info:=Text {
+                font-size: 18px;
+                width: parent.width;
+                height: parent.height;
+                vertical-alignment: TextVerticalAlignment.top;
+                text: "Lorem ipsum dolor sit amet,consectetur adipisici elit";
+            }
+        }
+    }
+}

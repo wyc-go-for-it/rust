@@ -1,8 +1,8 @@
 import { Button, VerticalBox } from "std-widgets.slint";
 
 export component AppWindow inherits Window {
-    width: 800px;
-    height: 600px;
+    min-width: 1024px;
+    min-height: 768px;
     in-out property<int> counter: 42;
     in property <image> video-frame <=> image.source;
  
@@ -11,9 +11,11 @@ export component AppWindow inherits Window {
 
     VerticalBox {
         image:=Image {
- 
+            width: parent.width;
+            vertical-stretch: 0;
         }
         HorizontalLayout {
+            vertical-stretch: 0;
             Button {
                 height: 80px;
                 text: "start";

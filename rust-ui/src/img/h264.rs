@@ -17,7 +17,6 @@ impl H264 {
 }
 
 impl H264 {
- 
     pub fn decode(mut callback: impl FnMut(SharedPixelBuffer<Rgb8Pixel>) + Send + 'static) {
         thread::spawn(move || {
             let h264_in = include_bytes!("../data/wyc.h264");
@@ -26,9 +25,7 @@ impl H264 {
                 let yuv = decoder._decode(packet);
                 match yuv {
                     Some(data) => callback(data),
-                    None => {
-                        println!("..........")
-                    }
+                    None => {}
                 }
             }
         });

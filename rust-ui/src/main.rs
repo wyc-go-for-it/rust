@@ -1,17 +1,77 @@
-use slint::Rgb8Pixel;
+use slint::{CloseRequestResponse, Rgb8Pixel, Rgba8Pixel, Weak};
 use std::io::Read;
 use std::net::{self, Ipv4Addr, SocketAddr, TcpListener, TcpStream};
 use std::thread;
 
 mod img;
+use img::capture::ScreenCapturer;
 use img::h264::H264;
 use slint::SharedPixelBuffer;
+
+use std::sync::mpsc::{channel, sync_channel, SyncSender};
+
+slint::slint! {
+    export component Screen inherits Dialog {
+        min-width: 1024px;
+        min-height: 768px;
+        in property <image> video-frame <=> image.source;
+        image:=Image {
+            width: parent.width;
+            height: parent.height;
+        }
+    }
+}
 
 slint::include_modules!();
 fn main() -> Result<(), slint::PlatformError> {
     let ui = AppWindow::new()?;
-    let ui_handle = ui.as_weak();
 
+    let hiii: Weak<AppWindow> = ui.as_weak();
+
+    let (start, stop) = channel::<Weak<Screen>>();
+    let (screen_sender, screen_rec) = channel::<SyncSender<bool>>();
+
+    thread::spawn(move || loop {
+        match stop.recv() {
+            Ok(screen) => {
+                let c: Weak<Screen> = screen.clone();
+                let mut p = ScreenCapturer::new();
+                screen_sender.send(p.sender_clone()).unwrap();
+                thread::spawn(move||{
+                    p.screen(move |data| {
+                        let _ = c.upgrade_in_event_loop(move |ui: Screen| {
+                            ui.set_video_frame(slint::Image::from_rgb8(data));
+                        });
+                    });
+                    println!("{}",p);
+                });
+            }
+            Err(_) => {
+                break;
+            }
+        }
+    });
+
+    ui.on_start(move || {
+        let screen = Screen::new().unwrap();
+        screen.show().unwrap();
+        start.send(screen.as_weak()).unwrap_or(());
+        let c = screen_rec.recv().unwrap();
+        screen.window().on_close_requested(move || {
+            c.send(false).unwrap_or(());
+            CloseRequestResponse::HideWindow
+        });
+    });
+
+    ui.window().on_close_requested(move || {
+        slint::quit_event_loop().unwrap();
+        CloseRequestResponse::HideWindow
+    });
+    ui.run()
+}
+
+#[allow(dead_code)]
+fn share_screen(ui_handle: Weak<AppWindow>) {
     thread::spawn(move || {
         let listener = TcpListener::bind(SocketAddr::new(
             net::IpAddr::V4(Ipv4Addr::UNSPECIFIED),
@@ -25,9 +85,8 @@ fn main() -> Result<(), slint::PlatformError> {
             });
         });
     });
-
-    ui.run()
 }
+
 fn handle_connection(
     mut stream: TcpStream,
     mut callback: impl FnMut(SharedPixelBuffer<Rgb8Pixel>) + Send + 'static,
