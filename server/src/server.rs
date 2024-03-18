@@ -2,7 +2,7 @@ use std::{
     io::Read,
     net::{self, Ipv4Addr, SocketAddr, TcpListener, TcpStream},
     sync::{Arc, Mutex},
-    thread,
+    thread, cell::Cell,
 };
 
 use rand::prelude::*;
@@ -14,7 +14,7 @@ pub struct Client {
     client_dpi: String,
     stream: Arc<Mutex<TcpStream>>,
     error: Arc<Mutex<Option<String>>>,
-    state: u32,
+    state: Cell<u32>,
 }
 
 impl Client {
@@ -64,7 +64,7 @@ impl Server {
                 client_dpi: dpi.clone(),
                 stream: Arc::new(Mutex::new(stream)),
                 error: Arc::new(Mutex::new(None)),
-                state : 0
+                state : Cell::new(0)
             })));
             self.handle();
             callback(id, ip, dpi);
@@ -75,15 +75,17 @@ impl Server {
         let c_info_arc = self.client_info.last().unwrap().clone();
         let d = self.disconnect.clone();
         thread::spawn(move || {
-            let mut c_info = c_info_arc.lock().unwrap();
+            let c_info = c_info_arc.lock().unwrap();
             let mut stream = c_info.stream.lock().unwrap();
             let mut buf = [0u8; 1];
 
             loop {
                 match stream.read_exact(&mut buf) {
-                    Ok(_) => {}
+                    Ok(_) => {
+                        
+                    }
                     Err(_) => {
-                        c_info.state = 1;
+                        c_info.state.set(1);
                         let client_id = c_info.client_id.clone();
                         let _ = slint::invoke_from_event_loop(move || {
                             d.lock().unwrap()(client_id);

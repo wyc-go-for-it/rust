@@ -1,5 +1,5 @@
 use slint::{CloseRequestResponse, Rgb8Pixel, Rgba8Pixel, Weak};
-use std::io::Read;
+use std::io::{Read, Write, IoSlice};
 use std::net::{self, Ipv4Addr, SocketAddr, TcpListener, TcpStream};
 use std::thread;
 
@@ -13,7 +13,7 @@ use std::sync::mpsc::{channel, sync_channel, SyncSender};
 slint::slint! {
     export component Screen inherits Dialog {
         min-width: 1024px;
-        min-height: 768px;
+        min-height: 720px;
         in property <image> video-frame <=> image.source;
         image:=Image {
             width: parent.width;
@@ -25,9 +25,6 @@ slint::slint! {
 slint::include_modules!();
 fn main() -> Result<(), slint::PlatformError> {
     let ui = AppWindow::new()?;
-
-    let hiii: Weak<AppWindow> = ui.as_weak();
-
     let (start, stop) = channel::<Weak<Screen>>();
     let (screen_sender, screen_rec) = channel::<SyncSender<bool>>();
 
@@ -38,12 +35,22 @@ fn main() -> Result<(), slint::PlatformError> {
                 let mut p = ScreenCapturer::new();
                 screen_sender.send(p.sender_clone()).unwrap();
                 thread::spawn(move||{
-                    p.screen(move |data| {
-                        let _ = c.upgrade_in_event_loop(move |ui: Screen| {
-                            ui.set_video_frame(slint::Image::from_rgb8(data));
-                        });
-                    });
-                    println!("{}",p);
+                    let stream = TcpStream::connect("127.0.0.1:9999");
+                    match stream {
+                        Ok(mut s)=>{
+                            let sender = p.sender_clone();
+                            p.encoder(move|data,_,_|{
+                                let result = s.write_all(data);
+                                if result.is_err() {
+                                    sender.send(false).unwrap();
+                                    println!("write:{:?}",result.err());
+                                }
+                            });
+                        }
+                        Err(e)=>{
+                            println!("connect:{}",e)
+                        }
+                    }
                 });
             }
             Err(_) => {

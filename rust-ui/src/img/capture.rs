@@ -3,7 +3,7 @@ use slint::{Rgb8Pixel, SharedPixelBuffer};
 use std::{
     fmt::Display,
     sync::mpsc::{sync_channel, Receiver, SyncSender, TryRecvError},
-    thread, time,
+    thread, time::{self, SystemTime, UNIX_EPOCH},
 };
 
 #[cfg(windows)]
@@ -163,6 +163,7 @@ impl ScreenCapturer {
             let mut yuv = YUVBuffer::new(w as usize, h as usize);
 
             while self.is_exit() {
+                let start = self.cur_time();
                 StretchBlt(cdc, 0, 0, w, h, dc, 0, h, w, -h, SRCCOPY);
                 GetDIBits(
                     cdc,
@@ -181,32 +182,29 @@ impl ScreenCapturer {
                     buf[index] ^= buf[index + 2];
                     index += 3;
                 }
-
                 yuv.read_rgb(&buf);
- 
-                let bitstream = encoder.encode(&yuv).unwrap();
-
-                let v = bitstream.to_vec();
-
-                println!("{}",v.len());
-
-                match decoder.decode(&bitstream.to_vec()) {
-                    Ok(d) => match d {
-                        Some(b) => {
-                            b.write_rgb8(&mut buf);
-                            callback(&buf, w as u32, h as u32);
-                        }
-                        None => {}
-                    },
-                    Err(e) => {
-                        println!("{}", e);
+                match encoder.encode(&yuv) {
+                    Ok(stream)=>{
+                        let data = stream.to_vec();
+                        callback(&data, w as u32, h as u32);
+                        println!("encode byte:{}",data.len());
                     }
-                }
-                //thread::sleep(time::Duration::from_millis(16))
+                    Err(e)=>{
+                        println!("{:?}",e);
+                    }
+                };               
+                let lost = self.cur_time() - start;
+                println!("lost:{}",lost);
             }
 
             DeleteDC(dc);
             DeleteDC(cdc);
         }
+    }
+    fn cur_time(&self)->u128{
+        return SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_millis();
     }
 }
