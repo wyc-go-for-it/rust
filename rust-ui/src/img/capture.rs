@@ -3,7 +3,8 @@ use slint::{Rgb8Pixel, SharedPixelBuffer};
 use std::{
     fmt::Display,
     sync::mpsc::{sync_channel, Receiver, SyncSender, TryRecvError},
-    thread, time::{self, SystemTime, UNIX_EPOCH},
+    thread,
+    time::{self, SystemTime, UNIX_EPOCH},
 };
 
 #[cfg(windows)]
@@ -157,7 +158,6 @@ impl ScreenCapturer {
             use openh264::encoder::{Encoder, EncoderConfig};
             use openh264::formats::YUVBuffer;
 
-            let mut decoder = Decoder::new().unwrap();
             let config = EncoderConfig::new(w as u32, h as u32);
             let mut encoder = Encoder::with_config(config).unwrap();
             let mut yuv = YUVBuffer::new(w as usize, h as usize);
@@ -184,27 +184,27 @@ impl ScreenCapturer {
                 }
                 yuv.read_rgb(&buf);
                 match encoder.encode(&yuv) {
-                    Ok(stream)=>{
+                    Ok(stream) => {
                         let data = stream.to_vec();
                         callback(&data, w as u32, h as u32);
-                        println!("encode byte:{}",data.len());
+                        println!("encode byte:{}", data.len());
                     }
-                    Err(e)=>{
-                        println!("{:?}",e);
+                    Err(e) => {
+                        println!("encoder error<{:?}>", e);
                     }
-                };               
+                };
                 let lost = self.cur_time() - start;
-                println!("lost:{}",lost);
+                println!("lost:{}", lost);
             }
 
             DeleteDC(dc);
             DeleteDC(cdc);
         }
     }
-    fn cur_time(&self)->u128{
+    fn cur_time(&self) -> u128 {
         return SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_millis();
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis();
     }
 }

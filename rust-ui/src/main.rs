@@ -1,5 +1,5 @@
 use slint::{CloseRequestResponse, Rgb8Pixel, Rgba8Pixel, Weak};
-use std::io::{Read, Write, IoSlice};
+use std::io::{IoSlice, Read, Write};
 use std::net::{self, Ipv4Addr, SocketAddr, TcpListener, TcpStream};
 use std::thread;
 
@@ -34,21 +34,21 @@ fn main() -> Result<(), slint::PlatformError> {
                 let c: Weak<Screen> = screen.clone();
                 let mut p = ScreenCapturer::new();
                 screen_sender.send(p.sender_clone()).unwrap();
-                thread::spawn(move||{
-                    let stream = TcpStream::connect("127.0.0.1:9999");
+                thread::spawn(move || {
+                    let stream = TcpStream::connect("47.107.28.135:9999");
                     match stream {
-                        Ok(mut s)=>{
+                        Ok(mut s) => {
                             let sender = p.sender_clone();
-                            p.encoder(move|data,_,_|{
+                            p.encoder(move |data, _, _| {
                                 let result = s.write_all(data);
                                 if result.is_err() {
                                     sender.send(false).unwrap();
-                                    println!("write:{:?}",result.err());
+                                    println!("write:{:?}", result.err());
                                 }
                             });
                         }
-                        Err(e)=>{
-                            println!("connect:{}",e)
+                        Err(e) => {
+                            println!("connect:{}", e)
                         }
                     }
                 });
