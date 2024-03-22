@@ -1,35 +1,73 @@
-import { Button, VerticalBox } from "std-widgets.slint";
+import { Button, VerticalBox, LineEdit, HorizontalBox } from "std-widgets.slint";
 
 export component AppWindow inherits Window {
+    title: "Client";
     min-width: 1024px;
     min-height: 720px;
-    in-out property<int> counter: 42;
-    in property <image> video-frame <=> image.source;
- 
-    callback start();
-    callback stop();
 
-    VerticalBox {
-        image:=Image {
-            width: parent.width;
-            vertical-stretch: 0;
+    in property <string> id-code;
+    in property <string> auth-code;
+
+    callback start();
+ 
+    HorizontalLayout {
+        VerticalBox {
+            horizontal-stretch:1;
+            alignment: LayoutAlignment.center;
+            HorizontalBox {
+                Text {
+                    text: "邀请码:";
+                    font-size: 18px;
+                    font-family: "黑体";
+                }
+                Text {
+                    width: 100%;
+                    text: root.id-code;
+                    font-size: 18px;
+                    horizontal-alignment: TextHorizontalAlignment.left;
+                }
+            }
+            HorizontalBox {
+                Text {
+                    text: "验证码:";
+                    font-size: 18px;
+                    font-family: "黑体";
+                }
+                id := Text {
+                    width: 100%;
+                    text: root.auth-code;
+                    font-size: 18px;
+                    horizontal-alignment: TextHorizontalAlignment.left;
+                }
+            }
         }
-        HorizontalLayout {
-            vertical-stretch: 0;
+        Rectangle {
+            width: 1px;
+            background: #c3c5c4;
+        }
+        VerticalBox {
+            horizontal-stretch:1;
+            alignment: LayoutAlignment.space-between;
+            HorizontalBox {
+                LineEdit {
+                    placeholder-text: @tr("请输入邀请码");
+                    height: 45px;
+                    enabled: true;
+                }
+                LineEdit {
+                    placeholder-text: @tr("请输入验证码");
+                    height: 45px;
+                    enabled: true;
+                }
+            }
             Button {
-                height: 80px;
-                text: "start";
+                text: "连接";
+                height: 45px;
                 clicked => {
                     root.start();
                 }
             }
-            Button {
-                height: 80px;
-                text: "stop";
-                clicked => {
-                    root.stop();
-                }
-            }
         }
     }
+
 }

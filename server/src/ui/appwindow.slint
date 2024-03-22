@@ -6,7 +6,7 @@ export component AppWindow inherits Window {
     min_height: 768px;
     background: #fff;
     in property <string> version <=> self.title;
-    in property <string> connInfo <=> info.text;
+    out property <string> connInfo ;
     in property <[[StandardListViewItem]]> model;
     VerticalBox {
         padding: 0px;
@@ -21,19 +21,22 @@ export component AppWindow inherits Window {
             ];
            rows: root.model;
         }
- 
         Rectangle {
-            border-color: #91918f;
-            border-width: 1px;
             width: parent.width;
             vertical-stretch: 4;
-            info:=Text {
-                font-size: 18px;
+            info:=TextEdit {
+                font-size: 12px;
                 width: parent.width;
                 height: parent.height;
-                vertical-alignment: TextVerticalAlignment.top;
-                text: "Lorem ipsum dolor sit amet,consectetur adipisici elit";
+                read-only:true;
+                has-focus: false;
+                text: root.connInfo;
             }
         }
     }
+
+    public function conn_Info(s:string){
+        root.connInfo = root.connInfo + "\n" + s;
+    }
+ 
 }

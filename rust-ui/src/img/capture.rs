@@ -7,6 +7,17 @@ use std::{
     time::{self, SystemTime, UNIX_EPOCH},
 };
 
+use std::mem;
+use winapi::shared::minwindef::LPVOID;
+use winapi::shared::windef::{HDC, HGDIOBJ, RECT};
+use winapi::um::{
+    wingdi::{
+        CreateCompatibleBitmap, CreateCompatibleDC, DeleteDC, GetDIBits, SelectObject, StretchBlt,
+        BITMAPINFO, BITMAPINFOHEADER, DIB_RGB_COLORS, RGBQUAD, SRCCOPY,
+    },
+    winuser::{GetDesktopWindow, GetWindowDC, GetWindowRect},
+};
+
 #[cfg(windows)]
 extern crate winapi;
 
@@ -105,16 +116,6 @@ impl ScreenCapturer {
     }
 
     fn gui_screen(&self, mut callback: impl FnMut(&Vec<u8>, u32, u32) + Send + 'static) {
-        use std::mem;
-        use winapi::shared::minwindef::LPVOID;
-        use winapi::shared::windef::{HDC, HGDIOBJ, RECT};
-        use winapi::um::{
-            wingdi::{
-                CreateCompatibleBitmap, CreateCompatibleDC, DeleteDC, GetDIBits, SelectObject,
-                StretchBlt, BITMAPINFO, BITMAPINFOHEADER, DIB_RGB_COLORS, RGBQUAD, SRCCOPY,
-            },
-            winuser::{GetDesktopWindow, GetWindowDC, GetWindowRect},
-        };
         unsafe {
             let hwnd = GetDesktopWindow();
             let dc = GetWindowDC(hwnd);
@@ -206,5 +207,18 @@ impl ScreenCapturer {
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_millis();
+    }
+
+    pub fn size() -> (i32, i32) {
+        unsafe {
+            let mut rect = RECT {
+                left: 0,
+                top: 0,
+                right: 0,
+                bottom: 0,
+            };
+            GetWindowRect(GetDesktopWindow(), &mut rect);
+            (rect.right, rect.bottom)
+        }
     }
 }

@@ -1,30 +1,33 @@
-use slint::{CloseRequestResponse, Rgb8Pixel, Rgba8Pixel, Weak};
-use std::io::{IoSlice, Read, Write};
+use slint::{CloseRequestResponse, Rgb8Pixel, SharedPixelBuffer, SharedString, Weak};
+use std::io::{Read, Write};
 use std::net::{self, Ipv4Addr, SocketAddr, TcpListener, TcpStream};
 use std::thread;
 
 mod img;
+
 use img::capture::ScreenCapturer;
 use img::h264::H264;
-use slint::SharedPixelBuffer;
 
-use std::sync::mpsc::{channel, sync_channel, SyncSender};
+mod client;
+use client::Client;
 
-slint::slint! {
+use std::sync::mpsc::{channel, SyncSender};
+
+slint::slint!(
     export component Screen inherits Dialog {
-        min-width: 1024px;
-        min-height: 720px;
-        in property <image> video-frame <=> image.source;
-        image:=Image {
-            width: parent.width;
-            height: parent.height;
-        }
+    min-width: 1024px;
+    min-height: 720px;
+    in property <image> video-frame <=> image.source;
+    image:=Image {
+        width: parent.width;
+        height: parent.height;
     }
-}
+});
 
 slint::include_modules!();
+
 fn main() -> Result<(), slint::PlatformError> {
-    let ui = AppWindow::new()?;
+    let ui: AppWindow = AppWindow::new()?;
     let (start, stop) = channel::<Weak<Screen>>();
     let (screen_sender, screen_rec) = channel::<SyncSender<bool>>();
 
@@ -59,21 +62,35 @@ fn main() -> Result<(), slint::PlatformError> {
         }
     });
 
+    let mut c = Client::new();
+
+    let result =  c.login();
+
+    println!("{:?}",result);
+
+    let (id, auth) = c.get_code();
+
     ui.on_start(move || {
-        let screen = Screen::new().unwrap();
+        c.send();
+
+        /*         let screen = Screen::new().unwrap();
         screen.show().unwrap();
         start.send(screen.as_weak()).unwrap_or(());
         let c = screen_rec.recv().unwrap();
         screen.window().on_close_requested(move || {
             c.send(false).unwrap_or(());
             CloseRequestResponse::HideWindow
-        });
+        }); */
     });
 
     ui.window().on_close_requested(move || {
         slint::quit_event_loop().unwrap();
         CloseRequestResponse::HideWindow
     });
+
+    ui.set_auth_code(SharedString::from(auth.to_string()));
+    ui.set_id_code(SharedString::from(id.to_string()));
+
     ui.run()
 }
 
@@ -88,7 +105,7 @@ fn share_screen(ui_handle: Weak<AppWindow>) {
         let (stream, _) = listener.accept().unwrap();
         handle_connection(stream, move |data| {
             let _ = ui_handle.upgrade_in_event_loop(|ui: AppWindow| {
-                ui.set_video_frame(slint::Image::from_rgb8(data));
+                //ui.set_video_frame(slint::Image::from_rgb8(data));
             });
         });
     });
