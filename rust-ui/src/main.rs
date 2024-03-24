@@ -70,8 +70,20 @@ fn main() -> Result<(), slint::PlatformError> {
 
     let (id, auth) = c.get_code();
 
+    let ui_handle = ui.as_weak();
     ui.on_start(move || {
-        c.send();
+        let remote_id:SharedString = ui_handle.upgrade().unwrap().get_remote_id();
+        let remote_auth:SharedString = ui_handle.upgrade().unwrap().get_remote_auth();
+
+        let id = remote_id.parse::<i32>();
+        let auth = remote_auth.parse::<i32>();
+
+        if id.is_ok() && auth.is_ok(){
+            let result = c.send(id.unwrap(), auth.unwrap());
+            println!("{:?}",result);
+        }
+
+        println!("remote_id:{},remote_auth:{}",remote_id,remote_auth);
 
         /*         let screen = Screen::new().unwrap();
         screen.show().unwrap();

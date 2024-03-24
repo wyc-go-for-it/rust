@@ -1,7 +1,7 @@
 use img::capture::ScreenCapturer;
 use std::error::Error;
-use std::io::{Read, Write};
-use std::mem::{self, ManuallyDrop};
+use std::io::{self, Read, Write};
+use std::mem::ManuallyDrop;
 use std::net::TcpStream;
 
 use crate::img;
@@ -31,12 +31,32 @@ impl Client {
         }
     }
 
-    pub fn send(&mut self) {
-        let mut buf = [5u8; 1];
-        buf[0] = 8;
+    pub fn send(&mut self,dst_id:i32,dst_auth:i32)->Result<(),io::Error> {
 
-        let r = self.conn.as_mut().unwrap().write(&mut buf);
-        println!("send:{:?}", r);
+        println!("dst_id:{},dis_auth:{}",dst_id,dst_auth);
+
+        match self.conn.as_mut() {
+            Some(conn)=>{
+                let mut buf = [0u8; 9];
+                buf[0] = 2;//登录标志
+                let id_auth = i64::to_ne_bytes((dst_id as i64) << 32 | dst_auth as i64);
+                buf[1..].copy_from_slice(id_auth.as_slice());
+        
+                conn.write_all(&buf)?;
+
+                conn.read(&mut buf[..1])?;
+
+                if buf[0] == 41u8 {
+                    return Err(io::Error::new(io::ErrorKind::NotFound, format!("未找到ID为{}的客户端",dst_id)));
+                }else {
+                    println!("连接成功，准备发送数据");
+                }
+            }
+            None=>{
+                return Err(io::Error::new(io::ErrorKind::NotFound, format!("未找到ID为{}的客户端，请确认是否已经登录。",dst_id)));
+            }
+        }
+        Ok(())
     }
 
     pub fn login(&mut self) -> Result<(), Box<dyn Error>> {

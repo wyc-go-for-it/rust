@@ -1,5 +1,6 @@
 use openh264::decoder::Decoder;
 use openh264::nal_units;
+use openh264::OpenH264API;
 use slint::Rgb8Pixel;
 use slint::SharedPixelBuffer;
 use std::thread;
@@ -11,7 +12,7 @@ pub struct H264 {
 impl H264 {
     pub fn new() -> Self {
         H264 {
-            decoder: Decoder::new().unwrap(),
+            decoder: Decoder::new(OpenH264API::from_source()).unwrap(),
         }
     }
 }

@@ -7,6 +7,8 @@ export component AppWindow inherits Window {
 
     in property <string> id-code;
     in property <string> auth-code;
+    out property <string> remote-id <=> id.text;
+    out property <string> remote-auth <=> auth.text;
 
     callback start();
  
@@ -16,7 +18,7 @@ export component AppWindow inherits Window {
             alignment: LayoutAlignment.center;
             HorizontalBox {
                 Text {
-                    text: "邀请码:";
+                    text: "本机邀请码:";
                     font-size: 18px;
                     font-family: "黑体";
                 }
@@ -29,11 +31,11 @@ export component AppWindow inherits Window {
             }
             HorizontalBox {
                 Text {
-                    text: "验证码:";
+                    text: "本机验证码:";
                     font-size: 18px;
                     font-family: "黑体";
                 }
-                id := Text {
+                Text {
                     width: 100%;
                     text: root.auth-code;
                     font-size: 18px;
@@ -49,13 +51,15 @@ export component AppWindow inherits Window {
             horizontal-stretch:1;
             alignment: LayoutAlignment.space-between;
             HorizontalBox {
-                LineEdit {
+                id := LineEdit {
                     placeholder-text: @tr("请输入邀请码");
+                    input-type: number;
                     height: 45px;
                     enabled: true;
                 }
-                LineEdit {
+                auth := LineEdit {
                     placeholder-text: @tr("请输入验证码");
+                    input-type: number;
                     height: 45px;
                     enabled: true;
                 }

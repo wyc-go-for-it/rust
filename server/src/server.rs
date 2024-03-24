@@ -1,20 +1,16 @@
 use std::{
-    cell::Cell,
-    collections::HashMap,
-    i16,
-    io::{self, Error, Read, Write},
-    net::{self, Ipv4Addr, SocketAddr},
-    sync::{Arc, Mutex},
+    collections::HashMap, i16, io::{self, Error, Read, Write}, net::{self, Ipv4Addr, SocketAddr}, sync::{Arc, Mutex}
 };
 
-use log::{debug, error, info, warn};
+use log::{debug, error, warn};
 use mio::{
-    event::{Event, Source},
+    event::Event,
     net::{TcpListener, TcpStream},
     Events, Interest, Poll, Token,
 };
 use rand::prelude::*;
 
+#[derive(Debug)]
 pub struct Client {
     client_id: String,
     client_ip: String,
@@ -121,7 +117,12 @@ impl<'a> Server<'a> {
                         );
                     },
                     _ => {
-                        self.handle(event)?;
+                        match self.handle(event) {
+                            Ok(_)=>{}
+                            Err(e)=>{
+                                error!("处理连接错误：{}",e);
+                            }
+                        };
                     }
                 }
             }
@@ -133,12 +134,7 @@ impl<'a> Server<'a> {
 
         let token = event.token();
 
-        if event.is_error() {
-            self.disconnect(&token);
-            return Ok(());
-        }
-
-        if event.is_read_closed() | event.is_write_closed() {
+        if event.is_read_closed() | event.is_write_closed() | event.is_error() {
             self.disconnect(&token);
             return Ok(());
         }
@@ -153,6 +149,7 @@ impl<'a> Server<'a> {
             let mark = buf[0];
             match mark {
                 1u8 => {
+                    
                     //登录
                     stream.read_exact(&mut buf[..4])?;
 
@@ -174,11 +171,27 @@ impl<'a> Server<'a> {
                     self.client_info.push(info);
 
                     //回写
-                    let width = i64::to_ne_bytes((id as i64) << 32 | auth as i64);
+                    let id_auth = i64::to_ne_bytes((id as i64) << 32 | auth as i64);
 
                     buf[0] = 1;
-                    buf[1..].copy_from_slice(width.as_slice());
-                    stream.write(&buf)?;
+                    buf[1..].copy_from_slice(id_auth.as_slice());
+                    stream.write(&buf)?;                    
+                }
+                2u8 =>{
+                    //连接
+                    stream.read_exact(&mut buf[1..])?;
+                    let id_auth = i64::from_ne_bytes(buf[1..].try_into().unwrap());
+                    let id:i32 = (id_auth >> 32) as i32;
+
+                    if let Some(client ) = self.client_info.iter().find(|c|{
+                        c.client_id == id.to_string()
+                    }){
+                        buf[0] = 3;//连接成功返回客户端标志
+                        debug!("find client:{:?}",client);
+                    }else{
+                        buf[0] = 41;//未找到需要连接的客户端
+                    }
+                    stream.write(&buf[..1])?;
                 }
                 _ => {
                     warn!("未知mark{}", mark);

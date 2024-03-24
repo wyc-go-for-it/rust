@@ -1,4 +1,5 @@
 use captrs::{CaptureError, Capturer};
+use openh264::OpenH264API;
 use slint::{Rgb8Pixel, SharedPixelBuffer};
 use std::{
     fmt::Display,
@@ -160,7 +161,7 @@ impl ScreenCapturer {
             use openh264::formats::YUVBuffer;
 
             let config = EncoderConfig::new(w as u32, h as u32);
-            let mut encoder = Encoder::with_config(config).unwrap();
+            let mut encoder = Encoder::with_config(OpenH264API::from_source(),config).unwrap();
             let mut yuv = YUVBuffer::new(w as usize, h as usize);
 
             while self.is_exit() {
