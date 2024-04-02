@@ -24,7 +24,7 @@ struct Connection {
 }
 
 pub struct Server<'a> {
-    client_info: Vec<Client>,
+    client_info: HashMap<Token, Client>,
     disconnect: Option<Arc<Mutex<dyn FnMut(String) + Send + 'a>>>,
     connect: Option<Arc<Mutex<dyn FnMut(String, String, String) + Send + 'a>>>,
     poll: Poll,
@@ -34,10 +34,13 @@ pub struct Server<'a> {
 impl<'a> Server<'a> {
     pub fn new() -> Self {
         Server {
-            client_info: vec![],
+            client_info: HashMap::new(),
             disconnect: None,
             connect: None,
-            poll: Poll::new().unwrap(),
+            poll: match Poll::new() {
+                Ok(poll) => poll,
+                Err(e) => panic!("failed to create Poll instance; err={:?}", e),
+            },
             connection_list: HashMap::new(),
         }
     }
@@ -130,8 +133,6 @@ impl<'a> Server<'a> {
     }
 
     pub fn handle(&mut self, event: &Event) -> Result<(), Error> {
-        debug!("{:?}", event);
-
         let token = event.token();
 
         if event.is_read_closed() | event.is_write_closed() | event.is_error() {
@@ -139,7 +140,7 @@ impl<'a> Server<'a> {
             return Ok(());
         }
 
-        let conn = self.connection_list.get_mut(&token).unwrap();
+        let mut conn = self.connection_list.remove(&token).unwrap();
 
         let stream = &mut conn.stream;
 
@@ -149,7 +150,6 @@ impl<'a> Server<'a> {
             let mark = buf[0];
             match mark {
                 1u8 => {
-                    
                     //登录
                     stream.read_exact(&mut buf[..4])?;
 
@@ -168,7 +168,7 @@ impl<'a> Server<'a> {
                         client_auth: auth.to_string(),
                     };
                     self.connect.as_mut().unwrap().lock().unwrap()(id.to_string(), ip, dpi);
-                    self.client_info.push(info);
+                    self.client_info.insert(token, info);
 
                     //回写
                     let id_auth = i64::to_ne_bytes((id as i64) << 32 | auth as i64);
@@ -181,17 +181,20 @@ impl<'a> Server<'a> {
                     //连接
                     stream.read_exact(&mut buf[1..])?;
                     let id_auth = i64::from_ne_bytes(buf[1..].try_into().unwrap());
-                    let id:i32 = (id_auth >> 32) as i32;
-
-                    if let Some(client ) = self.client_info.iter().find(|c|{
-                        c.client_id == id.to_string()
-                    }){
+                    let id = Token((id_auth >> 32) as usize);
+                    if self.client_info.contains_key(&id){
                         buf[0] = 3;//连接成功返回客户端标志
-                        debug!("find client:{:?}",client);
+                        let c = self.connection_list.get_mut(&id);
                     }else{
                         buf[0] = 41;//未找到需要连接的客户端
                     }
                     stream.write(&buf[..1])?;
+                }
+                3u8 =>{
+                    //发送数据
+                    stream.read_exact(&mut buf[..4])?;
+
+
                 }
                 _ => {
                     warn!("未知mark{}", mark);
@@ -209,23 +212,17 @@ impl<'a> Server<'a> {
                 .reregister(stream, token, Interest::READABLE)?;
         }
 
+        self.connection_list.insert(token,conn);
+
         Ok(())
     }
 
     fn disconnect(&mut self, token: &Token) {
-        if let Some(c_info) = self
-            .client_info
-            .iter_mut()
-            .find(|c| c.client_id == token.0.to_string())
-        {
-            let client_id = c_info.client_id.clone();
-            self.disconnect.as_mut().unwrap().lock().unwrap()(client_id);
 
-            self.client_info
-                .retain(|c| c.client_id != token.0.to_string());
+        self.disconnect.as_mut().unwrap().lock().unwrap()(token.0.to_string());
+        self.client_info.remove(token)    ;
+        self.connection_list.remove(token);
 
-            self.connection_list.remove(token);
-        }
         debug!(
             "当前有效连接数：{}，当前有效客户端数：{}",
             self.connection_list.len(),
