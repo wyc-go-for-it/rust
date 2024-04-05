@@ -9,12 +9,12 @@ crate-type = ["cdylib"]
 [dependencies]
 wasm-bindgen = "0.2"
 rust_xlsxwriter = {version = '0.64',features = ["wasm"]}
-web-sys = { version="0.3.69", features=[ "console" ] }
+
 console_error_panic_hook = "0.1.7"
 
 [profile.release]
 opt-level = 3
-debug = true
+debug = false
 strip = true
 debug-assertions = false
 overflow-checks = false

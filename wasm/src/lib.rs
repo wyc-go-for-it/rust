@@ -1,6 +1,6 @@
 extern crate console_error_panic_hook;
 extern crate wasm_bindgen;
-extern crate web_sys;
+//extern crate web_sys;
 
 use rust_xlsxwriter::*;
 use wasm_bindgen::prelude::*;
@@ -21,61 +21,54 @@ pub fn init_panic_hook() {
 }
 
 #[wasm_bindgen]
-pub fn xls_write() {
-    let mut workbook = Workbook::new();
-    // Create some formats to use in the worksheet.
-    let bold_format = Format::new().set_bold();
-    let decimal_format = Format::new().set_num_format("0.000");
-    let date_format = Format::new().set_num_format("yyyy-mm-dd");
-    let merge_format = Format::new()
-        .set_border(FormatBorder::Thin)
-        .set_align(FormatAlign::Center);
-
-    // Add a worksheet to the workbook.
-    let worksheet = workbook.add_worksheet();
-
-    // Set the column width for clarity.
-    worksheet.set_column_width(0, 22).unwrap();
-
-    // Write a string without formatting.
-    worksheet.write(0, 0, "Hello").unwrap();
-
-    // Write a string with the bold format defined above.
-    worksheet
-        .write_with_format(1, 0, "World", &bold_format)
-        .unwrap();
-
-    // Write some numbers.
-    worksheet.write(2, 0, 1).unwrap();
-    worksheet.write(3, 0, 2.34).unwrap();
-
-    // Write a number with formatting.
-    worksheet
-        .write_with_format(4, 0, 3.00, &decimal_format)
-        .unwrap();
-
-    // Write a formula.
-    worksheet.write(5, 0, Formula::new("=SIN(PI()/4)")).unwrap();
-
-    // Write a date.
-    let date = ExcelDateTime::from_ymd(2023, 1, 25).unwrap();
-    worksheet
-        .write_with_format(6, 0, &date, &date_format)
-        .unwrap();
-
-    // Write some links.
-    worksheet
-        .write(7, 0, Url::new("https://www.rust-lang.org"))
-        .unwrap();
-    worksheet
-        .write(8, 0, Url::new("https://www.rust-lang.org").set_text("Rust"))
-        .unwrap();
-
-    // Write some merged cells.
-    worksheet
-        .merge_range(9, 0, 9, 1, "Merged cells", &merge_format)
-        .unwrap();
-
-    // Save the file to disk.
-    //workbook.save("D:\\demo.xlsx").unwrap();
+pub struct WycWorkSheet{
+    inner:Worksheet,
 }
+
+#[wasm_bindgen]
+pub struct WycWorkBook{
+    inner:Workbook,
+}
+
+#[wasm_bindgen]
+impl WycWorkSheet{
+    #[wasm_bindgen(constructor)]
+    pub fn new()->Self{
+        WycWorkSheet{
+            inner:Worksheet::new(),
+        }
+    }
+
+    pub fn writ_string(&mut self,row:u32,col:u16,str:&str){
+        let _ = self.inner.write_string(row, col, str);
+    }
+
+    pub fn writ_string_bold(&mut self,row:u32,col:u16,str:&str){
+        let _ = self.inner.write_string_with_format(row, col, str,&Format::new().set_bold());
+    }
+
+    pub fn writ_int(&mut self,row:u32,col:u16,str:f64){
+        let _ = self.inner.write_number(row, col, str);
+        
+    }
+}
+
+#[wasm_bindgen]
+impl WycWorkBook{
+    #[wasm_bindgen(constructor)]
+    pub fn new()->Self{
+        WycWorkBook{
+            inner:Workbook::new(),
+        }
+    }
+
+    pub fn add_worksheet(&mut self,wks:WycWorkSheet){
+        self.inner.push_worksheet(wks.inner);
+    }
+
+    pub fn save(&mut self)->Box<[u8]>{
+        self.inner.save_to_buffer().unwrap().into_boxed_slice()
+    }
+}
+
+   
