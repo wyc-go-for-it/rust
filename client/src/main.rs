@@ -24,9 +24,14 @@ slint::slint!(
     }
 });
 
+extern crate utils;
+use utils::*;
+
 slint::include_modules!();
 
 fn main() -> Result<(), slint::PlatformError> {
+    log_util::Log::init_log();
+
     let ui: AppWindow = AppWindow::new()?;
     let (start, stop) = channel::<Weak<Screen>>();
     let (screen_sender, screen_rec) = channel::<SyncSender<bool>>();
@@ -75,16 +80,20 @@ fn main() -> Result<(), slint::PlatformError> {
         let remote_id:SharedString = ui_handle.upgrade().unwrap().get_remote_id();
         let remote_auth:SharedString = ui_handle.upgrade().unwrap().get_remote_auth();
 
-        let id = remote_id.parse::<i32>();
+        let id = remote_id.parse::<u32>();
         let auth = remote_auth.parse::<i32>();
 
+        utils::log_debug!("remote_id:{},remote_auth:{}",remote_id,remote_auth);
+
         if id.is_ok() && auth.is_ok(){
-            let result = c.send(id.unwrap(), auth.unwrap());
+            let result = c.connect(id.unwrap(), auth.unwrap());
             println!("{:?}",result);
+
+        }else{
+            
         }
 
-        println!("remote_id:{},remote_auth:{}",remote_id,remote_auth);
-
+        
         /*         let screen = Screen::new().unwrap();
         screen.show().unwrap();
         start.send(screen.as_weak()).unwrap_or(());

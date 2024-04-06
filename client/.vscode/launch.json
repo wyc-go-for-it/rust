@@ -7,15 +7,15 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug executable 'rust-ui'",
+            "name": "Debug executable 'client'",
             "cargo": {
                 "args": [
                     "build",
-                    "--bin=rust-ui",
-                    "--package=rust-ui"
+                    "--bin=client",
+                    "--package=client"
                 ],
                 "filter": {
-                    "name": "rust-ui",
+                    "name": "client",
                     "kind": "bin"
                 }
             },
@@ -25,16 +25,16 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in executable 'rust-ui'",
+            "name": "Debug unit tests in executable 'client'",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
-                    "--bin=rust-ui",
-                    "--package=rust-ui"
+                    "--bin=client",
+                    "--package=client"
                 ],
                 "filter": {
-                    "name": "rust-ui",
+                    "name": "client",
                     "kind": "bin"
                 }
             },

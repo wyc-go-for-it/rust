@@ -2,7 +2,6 @@ use std::{
     collections::HashMap, i16, io::{self, Error, Read, Write}, net::{self, Ipv4Addr, SocketAddr}, sync::{Arc, Mutex}
 };
 
-use log::{debug, error, warn};
 use mio::{
     event::Event,
     net::{TcpListener, TcpStream},
@@ -10,25 +9,28 @@ use mio::{
 };
 use rand::prelude::*;
 
-#[derive(Debug)]
+extern crate utils;
+
 pub struct Client {
-    client_id: String,
-    client_ip: String,
-    client_dpi: String,
-    client_auth: String,
+    id: usize,
+    code:u32,
+    ip: String,
+    dpi: String,
+    auth: String,
 }
 
+#[derive(Debug)]
 struct Connection {
     addr: SocketAddr,
     stream: TcpStream,
 }
 
 pub struct Server<'a> {
-    client_info: HashMap<Token, Client>,
+    client_info: HashMap<u32, Client>,
     disconnect: Option<Arc<Mutex<dyn FnMut(String) + Send + 'a>>>,
     connect: Option<Arc<Mutex<dyn FnMut(String, String, String) + Send + 'a>>>,
     poll: Poll,
-    connection_list: HashMap<Token, Connection>,
+    connection_list: HashMap<usize, Connection>,
 }
 
 impl<'a> Server<'a> {
@@ -53,9 +55,10 @@ impl<'a> Server<'a> {
         self.connect = Some(Arc::new(Mutex::new(d)));
     }
 
-    fn generate_code() -> i32 {
+    fn generate_code() -> u32 {
         rand::thread_rng().gen_range(100..60000)
     }
+    
 
     fn interrupted(err: &io::Error) -> bool {
         err.kind() == io::ErrorKind::Interrupted
@@ -112,10 +115,10 @@ impl<'a> Server<'a> {
                             Interest::READABLE | Interest::WRITABLE,
                         );
                         self.connection_list.insert(
-                            token,
+                            token.0,
                             Connection {
-                                addr: addr,
-                                stream: stream,
+                                addr,
+                                stream,
                             },
                         );
                     },
@@ -123,7 +126,8 @@ impl<'a> Server<'a> {
                         match self.handle(event) {
                             Ok(_)=>{}
                             Err(e)=>{
-                                error!("处理连接错误：{}",e);
+                                self.disconnect(event.token().0);
+                                utils::log_error!("处理连接错误：{}",e);
                             }
                         };
                     }
@@ -136,11 +140,11 @@ impl<'a> Server<'a> {
         let token = event.token();
 
         if event.is_read_closed() | event.is_write_closed() | event.is_error() {
-            self.disconnect(&token);
+            self.disconnect(token.0);
             return Ok(());
         }
 
-        let mut conn = self.connection_list.remove(&token).unwrap();
+        let mut conn = self.connection_list.remove(&token.0).unwrap();
 
         let stream = &mut conn.stream;
 
@@ -158,20 +162,22 @@ impl<'a> Server<'a> {
                     let height = size as i16;
 
                     let id = token.0;
+                    let code = Self::generate_code();
                     let auth = Self::generate_code();
                     let ip = format!("{}_{}", conn.addr.ip(), conn.addr.port());
                     let dpi = String::from(format!("{}x{}", width, height));
                     let info = Client {
-                        client_id: id.to_string(),
-                        client_ip: ip.clone(),
-                        client_dpi: dpi.clone(),
-                        client_auth: auth.to_string(),
+                        id,
+                        code,
+                        ip:ip.clone(),
+                        dpi:dpi.clone(),
+                        auth: auth.to_string(),
                     };
-                    self.connect.as_mut().unwrap().lock().unwrap()(id.to_string(), ip, dpi);
-                    self.client_info.insert(token, info);
+                    self.connect.as_mut().unwrap().lock().unwrap()(code.to_string(), ip, dpi);
+                    self.client_info.insert(code, info);
 
                     //回写
-                    let id_auth = i64::to_ne_bytes((id as i64) << 32 | auth as i64);
+                    let id_auth = i64::to_ne_bytes((code as i64) << 32 | auth as i64);
 
                     buf[0] = 1;
                     buf[1..].copy_from_slice(id_auth.as_slice());
@@ -181,10 +187,9 @@ impl<'a> Server<'a> {
                     //连接
                     stream.read_exact(&mut buf[1..])?;
                     let id_auth = i64::from_ne_bytes(buf[1..].try_into().unwrap());
-                    let id = Token((id_auth >> 32) as usize);
+                    let id = (id_auth >> 32) as u32;
                     if self.client_info.contains_key(&id){
                         buf[0] = 3;//连接成功返回客户端标志
-                        let c = self.connection_list.get_mut(&id);
                     }else{
                         buf[0] = 41;//未找到需要连接的客户端
                     }
@@ -194,10 +199,26 @@ impl<'a> Server<'a> {
                     //发送数据
                     stream.read_exact(&mut buf[..4])?;
 
+                }
+                4u8 =>{
+                    //发送界面数据
+                    stream.read_exact(&mut buf[..4])?;
+                    let code = u32::from_ne_bytes(buf[..4].try_into().unwrap());
+                    let c = self.client_info.get(&code).unwrap().id;
 
+                    if let Some(tc) = self.connection_list.get_mut(&c) {
+                        utils::log_debug!("{:?}",tc);
+
+                        stream.read_exact(&mut buf[..4])?;
+                        let data_size = u32::from_ne_bytes(buf[..4].try_into().unwrap());
+                        
+                        utils::log_debug!("data_size:{}",data_size);
+                    }else{
+                        utils::log_warn!("目标客户端{}已经关闭",code);
+                    }
                 }
                 _ => {
-                    warn!("未知mark{}", mark);
+                    utils::log_warn!("未知mark{mark}");
                 }
             }
 
@@ -212,18 +233,30 @@ impl<'a> Server<'a> {
                 .reregister(stream, token, Interest::READABLE)?;
         }
 
-        self.connection_list.insert(token,conn);
+        self.connection_list.insert(token.0,conn);
 
         Ok(())
     }
 
-    fn disconnect(&mut self, token: &Token) {
+    fn disconnect(&mut self, token: usize) {
+        let id = self.client_info.iter().find(|c|{
+            c.1.id == token
+        }).map(|cc|{
+            cc.1.code
+        });
 
-        self.disconnect.as_mut().unwrap().lock().unwrap()(token.0.to_string());
-        self.client_info.remove(token)    ;
-        self.connection_list.remove(token);
+        if id.is_some() {
+            let id = id.unwrap();
+            self.disconnect.as_mut().unwrap().lock().unwrap()(id.to_string());
 
-        debug!(
+            self.client_info.remove(&id);
+                    
+            self.connection_list.remove(&token);
+        }
+
+
+
+        utils::log_debug!(
             "当前有效连接数：{}，当前有效客户端数：{}",
             self.connection_list.len(),
             self.client_info.len()

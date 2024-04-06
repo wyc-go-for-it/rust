@@ -1,4 +1,3 @@
-use log::info;
 use slint::{Model, ModelRc, SharedString, StandardListViewItem, VecModel};
 use std::rc::Rc;
 use std::thread;
@@ -6,9 +5,14 @@ use std::thread;
 mod server;
 use server::Server;
 
+extern crate utils;
+use utils::*;
+
 slint::include_modules!();
 fn main() -> Result<(), slint::PlatformError> {
-    init_log();
+    log_util::Log::init_log();
+
+    
 
     let ui = AppWindow::new()?;
     let ui_handle = ui.as_weak();
@@ -74,29 +78,8 @@ fn main() -> Result<(), slint::PlatformError> {
 
     thread::spawn(move || {
         let result = server.wait();
-        info!("server exit,{:?}", result);
+        utils::log_info!("server exit,{:?}", result);
     });
 
     ui.run()
-}
-
-fn init_log() {
-    use chrono::Local;
-    use std::io::Write;
-
-    let env = env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "debug");
-    env_logger::Builder::from_env(env)
-        .format(|buf, record| {
-            writeln!(
-                buf,
-                "{} {} [{}:{}:{}] {}",
-                Local::now().format("%Y-%m-%d %H:%M:%S"),
-                record.level(),
-                record.module_path().unwrap_or("<unnamed>"),
-                record.line().unwrap_or(0),
-                record.file().unwrap_or(""),
-                &record.args()
-            )
-        })
-        .init();
 }

@@ -1,5 +1,5 @@
 use captrs::{CaptureError, Capturer};
-use openh264::OpenH264API;
+use openh264::{formats::RgbSliceU8, OpenH264API};
 use slint::{Rgb8Pixel, SharedPixelBuffer};
 use std::{
     fmt::Display,
@@ -156,12 +156,11 @@ impl ScreenCapturer {
             };
             bi.bmiHeader.biSize = mem::size_of_val(&bi.bmiHeader) as u32;
 
-            use openh264::decoder::Decoder;
             use openh264::encoder::{Encoder, EncoderConfig};
             use openh264::formats::YUVBuffer;
 
-            let config = EncoderConfig::new(w as u32, h as u32);
-            let mut encoder = Encoder::with_config(OpenH264API::from_source(),config).unwrap();
+            let config = EncoderConfig::new();
+            let mut encoder = Encoder::with_api_config(OpenH264API::from_source(),config).unwrap();
             let mut yuv = YUVBuffer::new(w as usize, h as usize);
 
             while self.is_exit() {
@@ -184,7 +183,7 @@ impl ScreenCapturer {
                     buf[index] ^= buf[index + 2];
                     index += 3;
                 }
-                yuv.read_rgb(&buf);
+                yuv.read_rgb(RgbSliceU8::new(&buf,(w as usize,h as usize)));
                 match encoder.encode(&yuv) {
                     Ok(stream) => {
                         let data = stream.to_vec();

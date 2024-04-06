@@ -1,6 +1,6 @@
 use openh264::decoder::Decoder;
+use openh264::formats::YUVSource;
 use openh264::nal_units;
-use openh264::OpenH264API;
 use slint::Rgb8Pixel;
 use slint::SharedPixelBuffer;
 use std::thread;
@@ -12,7 +12,7 @@ pub struct H264 {
 impl H264 {
     pub fn new() -> Self {
         H264 {
-            decoder: Decoder::new(OpenH264API::from_source()).unwrap(),
+            decoder: Decoder::new().unwrap(),
         }
     }
 }
@@ -37,7 +37,7 @@ impl H264 {
         match yuv {
             Ok(decode_yuv) => match decode_yuv {
                 Some(d_yuv) => {
-                    let (width, height) = d_yuv.dimension_rgb();
+                    let (width, height) = d_yuv.dimensions();
                     let mut data = SharedPixelBuffer::<Rgb8Pixel>::new(width as u32, height as u32);
                     d_yuv.write_rgb8(data.make_mut_bytes());
                     Some(data)
